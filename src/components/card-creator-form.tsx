@@ -1,0 +1,442 @@
+"use client";
+
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, Heart, LockKeyhole, Sparkles } from "lucide-react";
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type FieldError,
+} from "react-hook-form";
+import { createCard } from "@/app/actions";
+import { CardPreview } from "@/components/card-preview";
+import { ShareCardDialog } from "@/components/share-card-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  cardInputSchema,
+  DEFAULT_CARD,
+  makeSignature,
+  type CardInput,
+} from "@/lib/card-schema";
+
+const INTERMEDIATE_PATHS = [
+  "intermediatePhrases.0",
+  "intermediatePhrases.1",
+  "intermediatePhrases.2",
+  "intermediatePhrases.3",
+] as const;
+
+function ErrorText({ error, id }: { error?: FieldError; id: string }) {
+  return error ? (
+    <p
+      className="mt-1 text-xs text-destructive"
+      id={id}
+      role="alert"
+    >
+      {error.message}
+    </p>
+  ) : null;
+}
+
+function SectionTitle({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      <span className="grid size-9 place-items-center rounded-full bg-[var(--blush)]/35 text-[var(--rose-deep)]">
+        {icon}
+      </span>
+      <h2 className="font-heading text-2xl font-semibold text-[var(--ink)]">
+        {children}
+      </h2>
+    </div>
+  );
+}
+
+export function CardCreatorForm() {
+  const signatureEdited = useRef(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [serverError, setServerError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    setValue,
+  } = useForm<CardInput>({
+    defaultValues: DEFAULT_CARD,
+    resolver: zodResolver(cardInputSchema),
+    mode: "onBlur",
+  });
+
+  const values = useWatch({ control });
+  const senderName = useWatch({ control, name: "senderName" });
+  const recipientName = useWatch({ control, name: "recipientName" });
+  const deferredValues = useDeferredValue(values);
+
+  useEffect(() => {
+    if (!signatureEdited.current) {
+      setValue("signature", makeSignature(recipientName, senderName), {
+        shouldDirty: false,
+      });
+    }
+  }, [recipientName, senderName, setValue]);
+
+  const previewCard = useMemo<CardInput>(
+    () => ({
+      ...DEFAULT_CARD,
+      ...deferredValues,
+      intermediatePhrases: [
+        deferredValues.intermediatePhrases?.[0] ??
+          DEFAULT_CARD.intermediatePhrases[0],
+        deferredValues.intermediatePhrases?.[1] ??
+          DEFAULT_CARD.intermediatePhrases[1],
+        deferredValues.intermediatePhrases?.[2] ??
+          DEFAULT_CARD.intermediatePhrases[2],
+        deferredValues.intermediatePhrases?.[3] ??
+          DEFAULT_CARD.intermediatePhrases[3],
+      ],
+      replyUrl: deferredValues.replyUrl ?? "",
+    }),
+    [deferredValues],
+  );
+
+  const signatureField = register("signature");
+
+  const onSubmit = handleSubmit(async (data) => {
+    setSubmitting(true);
+    setServerError("");
+
+    try {
+      const result = await createCard(data);
+
+      if (!result.ok) {
+        setServerError(result.message);
+        return;
+      }
+
+      const url = new URL(`/card/${result.token}`, window.location.origin);
+      setShareUrl(url.toString());
+      setShareOpen(true);
+    } catch {
+      setServerError(
+        "Связь прервалась. Проверьте подключение и попробуйте ещё раз.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  });
+
+  return (
+    <main className="paper-surface min-h-svh">
+      <header className="mx-auto flex max-w-[92rem] items-end justify-between px-5 pb-8 pt-7 sm:px-8 lg:px-10">
+        <div>
+          <h1 className="font-heading text-5xl font-semibold tracking-[-0.04em] text-[var(--ink)] sm:text-6xl">
+            Unseal
+          </h1>
+          <p className="mt-1 max-w-md text-sm leading-6 text-[var(--ink-soft)]">
+            Некоторые чувства стоит открывать не спеша
+          </p>
+        </div>
+        <p className="hidden max-w-xs text-right text-xs leading-5 text-[var(--ink-soft)] lg:block">
+          Открытка исчезнет через семь дней — вместе со всеми личными словами.
+        </p>
+      </header>
+
+      <div className="mx-auto grid max-w-[92rem] gap-10 px-5 pb-28 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,.86fr)] lg:px-10">
+        <form
+          className="min-w-0 space-y-10"
+          onSubmit={onSubmit}
+          suppressHydrationWarning
+        >
+          <section>
+            <SectionTitle icon={<Heart className="size-4" />}>
+              Для кого эта история
+            </SectionTitle>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="senderName">Ваше имя</Label>
+                <Input
+                  aria-describedby={
+                    errors.senderName ? "senderName-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.senderName)}
+                  aria-required="true"
+                  className="romantic-input mt-2 h-11"
+                  id="senderName"
+                  maxLength={80}
+                  {...register("senderName")}
+                />
+                <ErrorText error={errors.senderName} id="senderName-error" />
+              </div>
+              <div>
+                <Label htmlFor="recipientName">Имя получателя</Label>
+                <Input
+                  aria-describedby={
+                    errors.recipientName ? "recipientName-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.recipientName)}
+                  aria-required="true"
+                  className="romantic-input mt-2 h-11"
+                  id="recipientName"
+                  maxLength={80}
+                  {...register("recipientName")}
+                />
+                <ErrorText
+                  error={errors.recipientName}
+                  id="recipientName-error"
+                />
+              </div>
+            </div>
+          </section>
+
+          <Separator className="bg-[var(--rose-deep)]/15" />
+
+          <section>
+            <SectionTitle icon={<LockKeyhole className="size-4" />}>
+              Пять замков
+            </SectionTitle>
+            <div className="space-y-5">
+              <div>
+                <Label htmlFor="introPhrase">Начальная фраза</Label>
+                <Textarea
+                  aria-describedby={
+                    errors.introPhrase ? "introPhrase-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.introPhrase)}
+                  aria-required="true"
+                  className="romantic-input mt-2 min-h-24 resize-y"
+                  id="introPhrase"
+                  maxLength={320}
+                  {...register("introPhrase")}
+                />
+                <ErrorText error={errors.introPhrase} id="introPhrase-error" />
+              </div>
+
+              {DEFAULT_CARD.intermediatePhrases.map((_, index) => (
+                <div key={index}>
+                  <Label htmlFor={`intermediate-${index}`}>
+                    После замка {index + 1}
+                  </Label>
+                  <Textarea
+                    aria-describedby={
+                      errors.intermediatePhrases?.[index]
+                        ? `intermediate-${index}-error`
+                        : undefined
+                    }
+                    aria-invalid={Boolean(
+                      errors.intermediatePhrases?.[index],
+                    )}
+                    aria-required="true"
+                    className="romantic-input mt-2 min-h-20 resize-y"
+                    id={`intermediate-${index}`}
+                    maxLength={320}
+                    {...register(INTERMEDIATE_PATHS[index])}
+                  />
+                  <ErrorText
+                    error={errors.intermediatePhrases?.[index]}
+                    id={`intermediate-${index}-error`}
+                  />
+                </div>
+              ))}
+
+              <div>
+                <Label htmlFor="preHeartPhrase">
+                  Когда последний замок исчез
+                </Label>
+                <Textarea
+                  aria-describedby={
+                    errors.preHeartPhrase ? "preHeartPhrase-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.preHeartPhrase)}
+                  aria-required="true"
+                  className="romantic-input mt-2 min-h-20 resize-y"
+                  id="preHeartPhrase"
+                  maxLength={240}
+                  {...register("preHeartPhrase")}
+                />
+                <ErrorText
+                  error={errors.preHeartPhrase}
+                  id="preHeartPhrase-error"
+                />
+              </div>
+            </div>
+          </section>
+
+          <Separator className="bg-[var(--rose-deep)]/15" />
+
+          <section>
+            <SectionTitle icon={<Sparkles className="size-4" />}>
+              То, что спрятано внутри
+            </SectionTitle>
+            <div className="space-y-5">
+              <div>
+                <Label htmlFor="finalMessage">Финальное послание</Label>
+                <Textarea
+                  aria-describedby={
+                    errors.finalMessage ? "finalMessage-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.finalMessage)}
+                  aria-required="true"
+                  className="romantic-input mt-2 min-h-80 resize-y leading-6"
+                  id="finalMessage"
+                  maxLength={6000}
+                  {...register("finalMessage")}
+                />
+                <ErrorText
+                  error={errors.finalMessage}
+                  id="finalMessage-error"
+                />
+              </div>
+              <div>
+                <Label htmlFor="signature">Подпись, необязательно</Label>
+                <Textarea
+                  {...signatureField}
+                  aria-describedby={
+                    errors.signature ? "signature-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.signature)}
+                  className="romantic-input mt-2 min-h-24 resize-y"
+                  id="signature"
+                  maxLength={500}
+                  placeholder="Можно оставить пустой"
+                  onChange={(event) => {
+                    signatureEdited.current = true;
+                    signatureField.onChange(event);
+                  }}
+                />
+                <ErrorText error={errors.signature} id="signature-error" />
+              </div>
+              <div>
+                <Label htmlFor="replyUrl">Ссылка для ответа, необязательно</Label>
+                <Input
+                  aria-describedby={
+                    errors.replyUrl ? "replyUrl-error" : undefined
+                  }
+                  aria-invalid={Boolean(errors.replyUrl)}
+                  className="romantic-input mt-2 h-11"
+                  id="replyUrl"
+                  maxLength={500}
+                  placeholder="https://t.me/… или mailto:…"
+                  {...register("replyUrl")}
+                />
+                <ErrorText error={errors.replyUrl} id="replyUrl-error" />
+              </div>
+              <Controller
+                control={control}
+                name="soundEnabled"
+                render={({ field }) => (
+                  <div className="flex items-center justify-between gap-6 rounded-2xl border border-[var(--rose-deep)]/15 bg-white/35 px-4 py-4">
+                    <div>
+                      <Label htmlFor="soundEnabled">Звуки истории</Label>
+                      <p
+                        className="mt-1 text-xs leading-5 text-[var(--ink-soft)]"
+                        id="soundEnabled-description"
+                      >
+                        Получатель сам включает тихие колокольчики.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={field.value}
+                      aria-describedby="soundEnabled-description"
+                      id="soundEnabled"
+                      onCheckedChange={field.onChange}
+                    />
+                  </div>
+                )}
+              />
+            </div>
+          </section>
+
+          {serverError ? (
+            <p
+              className="rounded-2xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+              role="alert"
+            >
+              {serverError}
+            </p>
+          ) : null}
+
+          <Button
+            className="romantic-button w-full sm:w-auto"
+            disabled={submitting}
+            size="lg"
+            type="submit"
+          >
+            <Heart aria-hidden="true" />
+            {submitting ? "Запечатываем…" : "Создать личную ссылку"}
+          </Button>
+        </form>
+
+        <aside className="sticky top-6 hidden h-[calc(100svh-3rem)] min-h-[38rem] lg:block">
+          <CardPreview card={previewCard} className="h-full" />
+        </aside>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--rose-deep)]/15 bg-[var(--cream)]/88 p-3 backdrop-blur-md lg:hidden">
+        <Button
+          className="romantic-button-outline w-full"
+          onClick={() => setPreviewOpen(true)}
+          size="lg"
+          type="button"
+          variant="outline"
+        >
+          <Eye aria-hidden="true" />
+          Открыть живой предпросмотр
+        </Button>
+      </div>
+
+      <Sheet onOpenChange={setPreviewOpen} open={previewOpen}>
+        <SheetContent
+          className="paper-surface w-full max-w-none border-0 p-0 sm:max-w-none"
+          side="bottom"
+          style={{
+            height: "100dvh",
+            maxHeight: "100dvh",
+            position: "fixed",
+          }}
+        >
+          <SheetHeader className="pr-12 pt-[max(1rem,env(safe-area-inset-top))]">
+            <SheetTitle className="font-heading text-2xl">
+              Предпросмотр открытки
+            </SheetTitle>
+            <SheetDescription>
+              Переключайте состояния, не открывая замки по-настоящему.
+            </SheetDescription>
+          </SheetHeader>
+          <CardPreview
+            card={previewCard}
+            className="min-h-0 flex-1 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          />
+        </SheetContent>
+      </Sheet>
+
+      <ShareCardDialog
+        onOpenChange={setShareOpen}
+        open={shareOpen}
+        url={shareUrl}
+      />
+    </main>
+  );
+}

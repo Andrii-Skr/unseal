@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Unseal
 
-## Getting Started
+Mobile-first конструктор интерактивных романтических открыток с пятью
+замками, кинематографическим переходом внутрь сердца, Web Audio и локальным
+PNG-воспоминанием.
 
-First, run the development server:
+## Локальный запуск
+
+Требования: Node.js 20+, pnpm и Docker.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+cp .env.example .env
+docker compose up -d postgres
+pnpm install
+pnpm db:deploy
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Приложение откроется на [http://localhost:3000/create](http://localhost:3000/create).
+PostgreSQL проброшен на порт `5433`, чтобы не конфликтовать с локальной базой
+на стандартном порту.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Для проверки с телефона в той же Wi‑Fi сети:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm dev:mob
+```
 
-## Learn More
+Скрипт получает Wi‑Fi IP Mac через `ipconfig getifaddr en0`, запускает сервер
+на этом адресе и фиксированном порту `3010`. Откройте на телефоне адрес из
+строки `Network`, добавив `/create`. `pnpm dev:phone` оставлен как алиас.
+Телефон и компьютер должны находиться в одной Wi‑Fi сети.
 
-To learn more about Next.js, take a look at the following resources:
+## Проверки
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Unit и component-тесты запускаются в Vitest. Интеграционный набор использует
+отдельный PostgreSQL `unseal_test` на порту `5434`: команда `pnpm test`
+автоматически поднимает контейнер и применяет миграции. Guard запрещает
+деструктивные тесты, если имя базы не заканчивается на `_test`. Playwright
+очищает эту же тестовую базу до и после прогона, проверяет публикацию, QR-код,
+всю историю пяти замков, PNG 1080×1350 и повторный просмотр на мобильном,
+планшетном и десктопном viewport.
 
-## Deploy on Vercel
+Для проверки уже запущенного внешнего стенда одновременно задайте
+`PLAYWRIGHT_BASE_URL` и `E2E_DATABASE_URL`; имя внешней тестовой базы также
+должно заканчиваться на `_test`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Хранение и очистка
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Открытки неизменяемы и автоматически истекают через семь дней. Для внешнего
+ежечасного расписания вызывайте:
+
+```text
+GET /api/cron/cleanup
+Authorization: Bearer <CRON_SECRET>
+```
+
+В production задайте `DATABASE_URL`, надёжный `CRON_SECRET` и отдельный
+`RATE_LIMIT_SECRET`. Если приложение стоит за доверенным ingress, который
+удаляет присланное клиентом значение и сам записывает IP, укажите имя этого
+заголовка в `RATE_LIMIT_TRUSTED_IP_HEADER`: `cf-connecting-ip`,
+`x-real-ip` или `x-forwarded-for`. В production эта настройка обязательна:
+приложение не доверяет входящим IP-заголовкам автоматически. Публичное
+создание ограничено на клиента и глобально, а устаревшие счётчики очищаются
+тем же cron-вызовом. Тексты открытки хранятся только в PostgreSQL и никогда
+не включаются в публичный URL. После удаления текста случайный токен и дата
+истечения сохраняются ещё 30 дней, чтобы ссылка показывала корректный экран
+истёкшей открытки; затем удаляется и этот технический tombstone.

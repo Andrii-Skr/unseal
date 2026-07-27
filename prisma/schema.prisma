@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Card {
+  id                  String   @id @default(uuid()) @db.Uuid
+  token               String   @unique @db.VarChar(43)
+  senderName          String   @db.VarChar(80)
+  recipientName       String   @db.VarChar(80)
+  introPhrase         String
+  intermediatePhrases String[]
+  preHeartPhrase      String
+  finalMessage        String
+  signature           String
+  soundEnabled        Boolean  @default(true)
+  replyUrl            String?  @db.VarChar(500)
+  createdAt           DateTime @default(now())
+  expiresAt           DateTime
+
+  @@index([expiresAt])
+}
+
+model CardCreationQuota {
+  key             String   @id @db.VarChar(80)
+  windowStartedAt DateTime
+  count           Int
+  updatedAt       DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model ExpiredCardToken {
+  token         String   @id @db.VarChar(43)
+  expiredAt     DateTime
+  retainedUntil DateTime
+
+  @@index([retainedUntil])
+}
