@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import {
   AnimatePresence,
@@ -37,7 +43,6 @@ const BUTTON_LABELS = [
   "Открыть сердце",
 ];
 
-const BRIDGE_READING_DURATION_MS = 2400;
 const INSIDE_READING_DURATION_MS = 2800;
 
 function getMessage(card: CardInput, stage: CardStage) {
@@ -75,48 +80,36 @@ function CardExperienceContent({ card }: CardExperienceProps) {
   const [openingLockIndex, setOpeningLockIndex] = useState<number | null>(null);
   const [heartZoomOrigin, setHeartZoomOrigin] =
     useState<HeartZoomOrigin | null>(null);
-  const announcementRef = useRef<HTMLParagraphElement>(null);
   const heartSceneRef = useRef<HTMLDivElement>(null);
-  const previousStageRef = useRef<CardStage>("intro");
-  const { enabled, toggle, playLock, playTransition } = useRomanticAudio(
-    card.soundEnabled,
-  );
+  const {
+    enabled,
+    playFinalMusic,
+    playLock,
+    playTransition,
+    prepareFinalMusic,
+    stopFinalMusic,
+    toggle,
+  } = useRomanticAudio(card.soundEnabled);
   const openedCount = openedLockCount(stage);
 
-  useEffect(() => {
-    if (previousStageRef.current === stage) return;
-    previousStageRef.current = stage;
-    announcementRef.current?.focus({ preventScroll: true });
-  }, [stage]);
+  useLayoutEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
-  useEffect(() => {
-    if (stage !== "all-locks-opened") return;
-    const timer = window.setTimeout(() => {
-      const bounds = heartSceneRef.current?.getBoundingClientRect();
-
-      if (bounds) {
-        setHeartZoomOrigin({
-          height: bounds.height,
-          left: bounds.left,
-          top: bounds.top,
-          width: bounds.width,
-        });
-      }
-
-      setStage("entering-heart");
-    }, BRIDGE_READING_DURATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [stage]);
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
 
   useEffect(() => {
     if (stage !== "entering-heart") return;
-    playTransition();
     const timer = window.setTimeout(
       () => setStage("inside-heart"),
       reduceMotion ? 220 : 2200,
     );
     return () => window.clearTimeout(timer);
-  }, [playTransition, reduceMotion, stage]);
+  }, [reduceMotion, stage]);
 
   useEffect(() => {
     if (stage !== "inside-heart") return;
@@ -126,6 +119,10 @@ function CardExperienceContent({ card }: CardExperienceProps) {
     );
     return () => window.clearTimeout(timer);
   }, [stage]);
+
+  useEffect(() => {
+    if (stage === "final-message") playFinalMusic();
+  }, [playFinalMusic, stage]);
 
   const openNextLock = useCallback(() => {
     if (openingLockIndex !== null || openedCount >= 5) return;
@@ -142,22 +139,39 @@ function CardExperienceContent({ card }: CardExperienceProps) {
     );
   }, [openedCount, openingLockIndex, playLock, reduceMotion]);
 
+  const enterHeart = useCallback(() => {
+    const bounds = heartSceneRef.current?.getBoundingClientRect();
+
+    if (bounds) {
+      setHeartZoomOrigin({
+        height: bounds.height,
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+      });
+    }
+
+    prepareFinalMusic();
+    playTransition();
+    setStage("entering-heart");
+  }, [playTransition, prepareFinalMusic]);
+
   const replay = useCallback(() => {
+    stopFinalMusic();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     setOpeningLockIndex(null);
     setHeartZoomOrigin(null);
     setStage("intro");
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  }, [reduceMotion]);
+  }, [stopFinalMusic]);
 
   return (
     <>
       <h1 className="sr-only">Открытка для {card.recipientName}</h1>
       <p
         aria-atomic="true"
+        aria-live="polite"
         className="sr-only"
-        ref={announcementRef}
         role="status"
-        tabIndex={-1}
       >
         {getStageAnnouncement(card, stage)}
       </p>
@@ -197,6 +211,7 @@ function CardExperienceContent({ card }: CardExperienceProps) {
             {card.soundEnabled ? (
               <Button
                 aria-label={enabled ? "Выключить звук" : "Включить звук"}
+                aria-pressed={enabled}
                 className="size-11 rounded-full border-[var(--rose-deep)]/20 bg-white/50 text-[var(--rose-deep)] hover:bg-white/80"
                 onClick={toggle}
                 size="icon"
@@ -207,26 +222,30 @@ function CardExperienceContent({ card }: CardExperienceProps) {
             ) : null}
           </header>
 
-          <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-2 pb-7 lg:grid lg:w-full lg:grid-cols-2 lg:items-center lg:gap-10 lg:px-10 lg:pb-4">
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-4 pb-7 lg:grid lg:w-full lg:grid-cols-2 lg:items-center lg:gap-10 lg:px-10 lg:pb-4">
             <HeartScene
               loosened={stage === "all-locks-opened"}
               openedCount={openedCount}
               openingLockIndex={openingLockIndex}
               sceneRef={heartSceneRef}
             />
-            <AnimatePresence mode="wait">
+            <div
+              className="grid min-h-48 w-full shrink-0 place-items-center lg:min-h-0"
+              data-testid="message-region"
+            >
               <MessageStep
                 buttonLabel={
                   stage === "all-locks-opened"
-                    ? undefined
+                    ? "Заглянуть внутрь сердца"
                     : BUTTON_LABELS[openedCount]
                 }
                 disabled={openingLockIndex !== null}
-                key={stage}
                 message={getMessage(card, stage)}
-                onContinue={openNextLock}
+                onContinue={
+                  stage === "all-locks-opened" ? enterHeart : openNextLock
+                }
               />
-            </AnimatePresence>
+            </div>
           </div>
 
           <p className="relative z-10 pb-4 text-center text-xs text-[var(--ink-soft)]/75">

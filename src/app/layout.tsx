@@ -22,6 +22,14 @@ export const metadata: Metadata = {
   },
   description:
     "Создайте личную романтическую историю с пятью замками и посланием внутри сердца.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Unseal",
+  },
+  other: {
+    "msapplication-TileColor": "#f7efe2",
+  },
 };
 
 export const viewport: Viewport = {

@@ -8,6 +8,7 @@ import {
   useForm,
   useWatch,
   type FieldError,
+  type FieldPath,
 } from "react-hook-form";
 import { createCard } from "@/app/actions";
 import { CardPreview } from "@/components/card-preview";
@@ -38,6 +39,21 @@ const INTERMEDIATE_PATHS = [
   "intermediatePhrases.2",
   "intermediatePhrases.3",
 ] as const;
+const CARD_FIELD_PATHS = new Set<string>([
+  "senderName",
+  "recipientName",
+  "introPhrase",
+  ...INTERMEDIATE_PATHS,
+  "preHeartPhrase",
+  "finalMessage",
+  "signature",
+  "soundEnabled",
+  "replyUrl",
+]);
+
+function isCardFieldPath(value: string): value is FieldPath<CardInput> {
+  return CARD_FIELD_PATHS.has(value);
+}
 
 function ErrorText({ error, id }: { error?: FieldError; id: string }) {
   return error ? (
@@ -83,6 +99,7 @@ export function CardCreatorForm() {
     formState: { errors },
     handleSubmit,
     register,
+    setError,
     setValue,
   } = useForm<CardInput>({
     defaultValues: DEFAULT_CARD,
@@ -133,6 +150,18 @@ export function CardCreatorForm() {
 
       if (!result.ok) {
         setServerError(result.message);
+        let shouldFocus = true;
+        for (const [field, messages] of Object.entries(result.fields ?? {})) {
+          const message = messages[0];
+          if (!message || !isCardFieldPath(field)) continue;
+
+          setError(
+            field,
+            { message, type: "server" },
+            { shouldFocus },
+          );
+          shouldFocus = false;
+        }
         return;
       }
 
@@ -354,7 +383,8 @@ export function CardCreatorForm() {
                         className="mt-1 text-xs leading-5 text-[var(--ink-soft)]"
                         id="soundEnabled-description"
                       >
-                        Получатель сам включает тихие колокольчики.
+                        Колокольчик прозвучит только после нажатия на замок;
+                        получатель сможет выключить его.
                       </p>
                     </div>
                     <Switch

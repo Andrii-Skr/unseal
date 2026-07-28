@@ -254,7 +254,7 @@ export function FinalMessage({
           >
             <Button
               className="romantic-button"
-              disabled={!controlsVisible}
+              disabled={!controlsVisible || saving}
               onClick={onReplay}
               size="lg"
             >

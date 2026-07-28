@@ -3,6 +3,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HeartZoomTransition } from "@/components/heart-zoom-transition";
+import { InsideHeartScene } from "@/components/inside-heart-scene";
 import { RomanticLock } from "@/components/romantic-lock";
 
 describe("responsive image configuration", () => {
@@ -34,5 +35,29 @@ describe("responsive image configuration", () => {
       "loading",
       "eager",
     );
+  });
+
+  it("sizes fixed inside-scene layers with the dynamic viewport", () => {
+    const { container, getByTestId, unmount } = render(
+      <InsideHeartScene />,
+    );
+    const backdrop = getByTestId("inside-heart-backdrop");
+    const section = container.querySelector("section");
+
+    expect(backdrop).toHaveClass("fixed", "inset-0");
+    expect(section).not.toContainElement(backdrop);
+    expect(getByTestId("inside-heart-vignette")).toHaveClass(
+      "absolute",
+      "inset-0",
+    );
+    expect(document.documentElement).toHaveClass("inside-heart-active");
+    expect(document.body).toHaveClass("inside-heart-active");
+
+    unmount();
+
+    expect(document.documentElement).not.toHaveClass(
+      "inside-heart-active",
+    );
+    expect(document.body).not.toHaveClass("inside-heart-active");
   });
 });

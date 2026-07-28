@@ -1,8 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 type MessageStepProps = {
   message: string;
@@ -19,22 +17,14 @@ export function MessageStep({
   disabled = false,
   compact = false,
 }: MessageStepProps) {
-  const reduceMotion = usePrefersReducedMotion();
-
   return (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className={
         compact
-          ? "mx-auto flex max-w-md flex-col items-center gap-4 text-center"
-          : "mx-auto flex max-w-xl flex-col items-center gap-5 px-6 text-center"
+          ? "mx-auto flex w-full max-w-md shrink-0 flex-col items-center gap-4 text-center"
+          : "mx-auto flex w-full max-w-xl shrink-0 flex-col items-center gap-5 px-6 text-center"
       }
-      initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
-      key={message}
-      transition={{
-        duration: reduceMotion ? 0.15 : 0.55,
-        delay: reduceMotion ? 0 : 0.08,
-      }}
+      data-testid="message-step"
     >
       <p
         className={
@@ -55,6 +45,6 @@ export function MessageStep({
           {buttonLabel}
         </Button>
       ) : null}
-    </motion.div>
+    </div>
   );
 }

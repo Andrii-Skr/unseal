@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "icons:generate": "tsx scripts/generate-icons.ts",
     "pretest": "pnpm test:db:prepare",
     "test": "vitest run",
     "pretest:watch": "pnpm test:db:prepare",

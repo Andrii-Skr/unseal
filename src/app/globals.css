@@ -207,6 +207,11 @@
     linear-gradient(0deg, rgb(80 44 61 / 44%), transparent 46%);
 }
 
+html.inside-heart-active,
+html.inside-heart-active body.inside-heart-active {
+  background-color: #9a536d;
+}
+
 .scrollbar-soft {
   scrollbar-width: thin;
   scrollbar-color: rgb(168 85 113 / 30%) transparent;

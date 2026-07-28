@@ -18,6 +18,10 @@ export async function copyText(text: string): Promise<boolean> {
     opacity: "0",
     pointerEvents: "none",
   });
+  const previouslyFocused =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
   document.body.append(textarea);
   textarea.focus();
   textarea.select();
@@ -29,5 +33,8 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   } finally {
     textarea.remove();
+    if (previouslyFocused?.isConnected) {
+      previouslyFocused.focus({ preventScroll: true });
+    }
   }
 }

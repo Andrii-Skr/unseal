@@ -21,10 +21,17 @@ export async function createCard(input: CardInput): Promise<CreateCardResult> {
   const parsed = cardInputSchema.safeParse(input);
 
   if (!parsed.success) {
+    const fields: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const field = issue.path.map(String).join(".");
+      if (!field) continue;
+      (fields[field] ??= []).push(issue.message);
+    }
+
     return {
       ok: false,
       message: "Проверьте заполненные поля",
-      fields: parsed.error.flatten().fieldErrors,
+      fields,
     };
   }
 

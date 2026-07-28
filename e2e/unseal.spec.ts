@@ -59,6 +59,9 @@ test("creates and opens the full five-lock story", async ({ page }, testInfo) =>
   await expect(bridgePhrase).toBeVisible();
   await page.waitForTimeout(1200);
   await expect(bridgePhrase).toBeVisible();
+  await page
+    .getByRole("button", { name: "Заглянуть внутрь сердца" })
+    .click();
 
   const insidePhrase = page
     .locator("section")

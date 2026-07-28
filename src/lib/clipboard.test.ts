@@ -48,11 +48,19 @@ describe("copyText", () => {
       configurable: true,
       value: execCommand,
     });
+    const previousFocus = document.createElement("button");
+    document.body.append(previousFocus);
+    previousFocus.focus();
 
-    await expect(copyText("http://192.168.1.10:3010/card/token")).resolves.toBe(
-      true,
-    );
-    expect(execCommand).toHaveBeenCalledWith("copy");
-    expect(document.querySelector("textarea[aria-hidden='true']")).toBeNull();
+    try {
+      await expect(
+        copyText("http://192.168.1.10:3010/card/token"),
+      ).resolves.toBe(true);
+      expect(execCommand).toHaveBeenCalledWith("copy");
+      expect(document.querySelector("textarea[aria-hidden='true']")).toBeNull();
+      expect(previousFocus).toHaveFocus();
+    } finally {
+      previousFocus.remove();
+    }
   });
 });

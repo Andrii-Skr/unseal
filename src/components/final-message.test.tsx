@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FinalMessage,
@@ -26,6 +26,7 @@ function useReducedMotionPreference() {
 
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -60,6 +61,25 @@ describe("FinalMessage", () => {
     act(() => vi.advanceTimersByTime(8_000));
     expect(replyLink).toHaveAttribute("href", "https://example.com/reply");
     expect(replyLink).not.toHaveAttribute("tabindex");
+  });
+
+  it("prevents replay while a keepsake is being prepared", () => {
+    useReducedMotionPreference();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    render(<FinalMessage card={DEFAULT_CARD} onReplay={() => undefined} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить воспоминание" }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Пережить этот момент ещё раз",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Создаём PNG…" }),
+    ).toBeDisabled();
   });
 
   it("puts every final-message block into the keepsake", () => {

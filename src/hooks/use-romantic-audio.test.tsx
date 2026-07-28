@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRomanticAudio } from "@/hooks/use-romantic-audio";
 
 type OscillatorMock = {
@@ -9,12 +17,41 @@ type OscillatorMock = {
 };
 
 const originalAudioContext = window.AudioContext;
+const originalAudio = window.Audio;
 const oscillators: OscillatorMock[] = [];
+const contexts: AudioContextMock[] = [];
+const audioElements: AudioElementMock[] = [];
+
+class AudioElementMock {
+  currentTime = 0;
+  loop = false;
+  paused = true;
+  preload = "";
+  src: string;
+  volume = 1;
+
+  load = vi.fn();
+  pause = vi.fn().mockImplementation(() => {
+    this.paused = true;
+  });
+  play = vi.fn().mockImplementation(async () => {
+    this.paused = false;
+  });
+
+  constructor(src = "") {
+    this.src = src;
+    audioElements.push(this);
+  }
+}
 
 class AudioContextMock {
   currentTime = 0;
   destination = {} as AudioDestinationNode;
   state: AudioContextState = "running";
+
+  constructor() {
+    contexts.push(this);
+  }
 
   close = vi.fn().mockResolvedValue(undefined);
   resume = vi.fn().mockResolvedValue(undefined);
@@ -48,8 +85,22 @@ class AudioContextMock {
   }
 }
 
+class SuspendedAudioContextMock extends AudioContextMock {
+  override state: AudioContextState = "suspended";
+  override resume = vi.fn().mockImplementation(async () => {
+    this.state = "running";
+  });
+}
+
 function AudioHarness() {
-  const { enabled, playLock, toggle } = useRomanticAudio(true);
+  const {
+    enabled,
+    playFinalMusic,
+    playLock,
+    playTransition,
+    prepareFinalMusic,
+    toggle,
+  } = useRomanticAudio(true);
 
   return (
     <>
@@ -57,53 +108,131 @@ function AudioHarness() {
         {enabled ? "Выключить" : "Включить"}
       </button>
       <button onClick={playLock} type="button">
-        Проиграть
+        Проиграть замок
+      </button>
+      <button onClick={playTransition} type="button">
+        Проиграть переход
+      </button>
+      <button onClick={prepareFinalMusic} type="button">
+        Подготовить финал
+      </button>
+      <button onClick={playFinalMusic} type="button">
+        Показать финал
       </button>
     </>
   );
 }
 
+beforeEach(() => {
+  Object.defineProperty(window, "Audio", {
+    configurable: true,
+    value: AudioElementMock,
+  });
+});
+
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
   oscillators.length = 0;
+  contexts.length = 0;
+  audioElements.length = 0;
   Object.defineProperty(window, "AudioContext", {
     configurable: true,
     value: originalAudioContext,
   });
+  Object.defineProperty(window, "Audio", {
+    configurable: true,
+    value: originalAudio,
+  });
 });
 
 describe("useRomanticAudio", () => {
-  it("cancels active and delayed tones when sound is disabled", () => {
-    vi.useFakeTimers();
-    Object.defineProperty(window, "AudioContext", {
-      configurable: true,
-      value: AudioContextMock,
-    });
-    render(<AudioHarness />);
+  it("plays the supplied lock sample directly from the user action", () => {
+    render(
+      <StrictMode>
+        <AudioHarness />
+      </StrictMode>,
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Включить" }));
-    fireEvent.click(screen.getByRole("button", { name: "Проиграть" }));
-    expect(oscillators).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Выключить" }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проиграть замок" }),
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Выключить" }));
-    expect(oscillators[0].stop).toHaveBeenLastCalledWith();
-
-    act(() => vi.advanceTimersByTime(100));
-    expect(oscillators).toHaveLength(1);
+    const audio = audioElements
+      .filter((item) => item.src === "/audio/closed-metal-latch.mp3")
+      .at(-1);
+    expect(audio?.src).toBe("/audio/closed-metal-latch.mp3");
+    expect(audio?.preload).toBe("auto");
+    expect(audio?.play).toHaveBeenCalledOnce();
   });
 
-  it("stays disabled when Web Audio is unavailable", () => {
+  it("stops the lock sample when sound is disabled", () => {
+    render(<AudioHarness />);
+    const audio = audioElements.at(-1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проиграть замок" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Выключить" }));
+
+    expect(audio?.pause).toHaveBeenCalled();
+    expect(audio?.currentTime).toBe(0);
+  });
+
+  it("plays the MP3 even when Web Audio is unavailable", () => {
     Object.defineProperty(window, "AudioContext", {
       configurable: true,
       value: undefined,
     });
     render(<AudioHarness />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Включить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проиграть замок" }),
+    );
 
-    expect(
-      screen.getByRole("button", { name: "Включить" }),
-    ).toBeInTheDocument();
-    expect(oscillators).toHaveLength(0);
+    const lockAudio = audioElements
+      .filter((audio) => audio.src === "/audio/closed-metal-latch.mp3")
+      .at(-1);
+    expect(lockAudio?.play).toHaveBeenCalledOnce();
+  });
+
+  it("unlocks final music on the direct gesture and fades it in", () => {
+    vi.useFakeTimers();
+    render(<AudioHarness />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Подготовить финал" }),
+    );
+    const music = audioElements.find(
+      (audio) => audio.src === "/audio/final-romantic.mp3",
+    );
+
+    expect(music?.loop).toBe(true);
+    expect(music?.volume).toBe(0);
+    expect(music?.play).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "Показать финал" }));
+    act(() => vi.advanceTimersByTime(1_600));
+
+    expect(music?.volume).toBeCloseTo(0.2);
+  });
+
+  it("resumes a suspended mobile audio context before the transition tone", async () => {
+    Object.defineProperty(window, "AudioContext", {
+      configurable: true,
+      value: SuspendedAudioContextMock,
+    });
+    render(<AudioHarness />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Проиграть переход" }),
+    );
+
+    await waitFor(() => expect(oscillators).toHaveLength(1));
+    expect(contexts[0].resume).toHaveBeenCalledOnce();
+    expect(contexts[0].state).toBe("running");
   });
 });
