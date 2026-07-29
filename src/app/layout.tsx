@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { getLocale } from "next-intl/server";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -17,14 +18,14 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: {
-    default: "Unseal — чувства, которые открывают не спеша",
+    default: "Unseal — feelings worth opening slowly",
     template: "%s — Unseal",
   },
   description:
-    "Создайте личную романтическую историю с пятью замками и посланием внутри сердца.",
+    "Create a personal romantic story with five locks and a message hidden inside a heart.",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Unseal",
   },
   other: {
@@ -38,14 +39,16 @@ export const viewport: Viewport = {
   themeColor: "#f7efe2",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+
   return (
     <html
-      lang="ru"
+      lang={locale}
       className={`${cormorant.variable} ${manrope.variable} h-full antialiased`}
       suppressHydrationWarning
     >

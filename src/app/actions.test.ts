@@ -1,8 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { createCard } from "@/app/actions";
-import { DEFAULT_CARD } from "@/lib/card-schema";
+import { DEFAULT_CARD, getDefaultCard } from "@/lib/card-schema";
 
 describe("createCard", () => {
+  it("returns validation errors in the card locale", async () => {
+    const result = await createCard({
+      ...getDefaultCard("en"),
+      senderName: "",
+    });
+
+    expect(result).toMatchObject({
+      fields: {
+        senderName: ["Enter the sender's name"],
+      },
+      message: "Check the highlighted fields",
+      ok: false,
+    });
+  });
+
   it("returns exact paths for nested validation errors", async () => {
     const result = await createCard({
       ...DEFAULT_CARD,

@@ -1,0 +1,1 @@
+export const HEART_ENTRY_DURATION_MS = 2200;

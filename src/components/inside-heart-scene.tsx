@@ -3,16 +3,20 @@
 import { useEffect } from "react";
 import { getImageProps } from "next/image";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import type { AppLocale } from "@/i18n/routing";
 
 type InsideHeartSceneProps = {
   children?: React.ReactNode;
   compact?: boolean;
+  locale?: AppLocale;
 };
 
 function ResponsiveSceneImage({ compact }: { compact: boolean }) {
+  const t = useTranslations("Images");
   const common = {
-    alt: "Силуэт человека в худи смотрит на тёплый свет вдали",
+    alt: t("inside"),
     fetchPriority: compact ? ("auto" as const) : ("high" as const),
     loading: compact ? ("lazy" as const) : ("eager" as const),
     sizes: compact ? "(min-width: 1024px) 45vw, 100vw" : "100vw",
@@ -43,6 +47,7 @@ function ResponsiveSceneImage({ compact }: { compact: boolean }) {
         {...rest}
         alt={common.alt}
         className="size-full object-cover"
+        data-testid="inside-heart-image"
         draggable={false}
       />
     </picture>
@@ -52,6 +57,7 @@ function ResponsiveSceneImage({ compact }: { compact: boolean }) {
 export function InsideHeartScene({
   children,
   compact = false,
+  locale,
 }: InsideHeartSceneProps) {
   useEffect(() => {
     if (compact) return;
@@ -93,6 +99,7 @@ export function InsideHeartScene({
             : "z-10 min-h-dvh bg-transparent",
         )}
         initial={{ opacity: compact ? 0 : 1 }}
+        lang={locale}
         transition={{ duration: compact ? 0.5 : 0 }}
       >
         {compact ? (
@@ -117,5 +124,17 @@ export function InsideHeartScene({
         {children}
       </motion.section>
     </>
+  );
+}
+
+export function InsideHeartScenePreload() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="inside-heart-preload"
+      hidden
+    >
+      <ResponsiveSceneImage compact={false} />
+    </div>
   );
 }

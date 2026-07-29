@@ -12,6 +12,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum CardLanguage {
+  ru
+  en
+  uk
+}
+
 model Card {
   id                  String   @id @default(uuid()) @db.Uuid
   token               String   @unique @db.VarChar(43)
@@ -24,6 +30,7 @@ model Card {
   signature           String
   soundEnabled        Boolean  @default(true)
   replyUrl            String?  @db.VarChar(500)
+  language            CardLanguage @default(ru)
   createdAt           DateTime @default(now())
   expiresAt           DateTime
 
@@ -43,6 +50,7 @@ model ExpiredCardToken {
   token         String   @id @db.VarChar(43)
   expiredAt     DateTime
   retainedUntil DateTime
+  language      CardLanguage @default(ru)
 
   @@index([retainedUntil])
 }

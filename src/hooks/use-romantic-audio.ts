@@ -7,7 +7,7 @@ type WebkitWindow = Window &
     webkitAudioContext?: typeof AudioContext;
   };
 
-const FINAL_MUSIC_VOLUME = 0.2;
+const FINAL_MUSIC_VOLUME = 0.28;
 const FINAL_MUSIC_FADE_STEPS = 16;
 const FINAL_MUSIC_FADE_STEP_MS = 100;
 

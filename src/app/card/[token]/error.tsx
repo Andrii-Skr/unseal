@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { RefreshCw, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 type CardErrorProps = {
@@ -14,6 +15,9 @@ export default function CardError({
   error,
   unstable_retry,
 }: CardErrorProps) {
+  const t = useTranslations("CardError");
+  const commonT = useTranslations("Common");
+
   useEffect(() => {
     console.error("Card page failed", error);
   }, [error]);
@@ -27,10 +31,10 @@ export default function CardError({
           strokeWidth={1.4}
         />
         <h1 className="font-heading text-4xl text-[var(--ink)]">
-          Не удалось открыть открытку
+          {t("title")}
         </h1>
         <p className="mt-4 leading-7 text-[var(--ink-soft)]">
-          Возможно, связь прервалась. Попробуйте загрузить историю ещё раз.
+          {t("description")}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button
@@ -39,10 +43,10 @@ export default function CardError({
             size="lg"
           >
             <RefreshCw aria-hidden="true" />
-            Попробовать снова
+            {t("retry")}
           </Button>
-          <Link className="romantic-link inline-flex" href="/create">
-            Создать новую открытку
+          <Link className="romantic-link inline-flex" href="/en/create">
+            {commonT("createNew")}
           </Link>
         </div>
       </div>

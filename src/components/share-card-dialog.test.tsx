@@ -4,13 +4,13 @@ import { useState } from "react";
 import {
   act,
   fireEvent,
-  render,
   screen,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ShareCardDialog } from "@/components/share-card-dialog";
 import { copyText } from "@/lib/clipboard";
+import { renderWithIntl } from "../../test/render-with-intl";
 
 vi.mock("@/lib/clipboard", () => ({
   copyText: vi.fn().mockResolvedValue(true),
@@ -42,7 +42,7 @@ function ShareDialogHarness() {
 describe("ShareCardDialog", () => {
   it("restarts the copied-status timeout after a repeated copy", async () => {
     vi.useFakeTimers();
-    render(
+    renderWithIntl(
       <ShareCardDialog
         onOpenChange={() => undefined}
         open
@@ -80,7 +80,7 @@ describe("ShareCardDialog", () => {
           resolveCopy = resolve;
         }),
     );
-    render(<ShareDialogHarness />);
+    renderWithIntl(<ShareDialogHarness />);
 
     fireEvent.click(screen.getByRole("button", { name: "Копировать" }));
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));

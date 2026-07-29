@@ -1,0 +1,135 @@
+{
+  "Metadata": {
+    "defaultTitle": "Unseal — feelings worth opening slowly",
+    "description": "Create a personal romantic story with five locks and a message hidden inside a heart.",
+    "createTitle": "Create a card"
+  },
+  "Manifest": {
+    "name": "Unseal — a romantic card",
+    "description": "A personal romantic story with five locks and a message hidden inside a heart."
+  },
+  "Common": {
+    "close": "Close",
+    "brandTagline": "Some feelings are worth opening slowly",
+    "createNew": "Create a new card"
+  },
+  "Language": {
+    "label": "Language",
+    "ru": "Русский",
+    "en": "English",
+    "uk": "Українська"
+  },
+  "Creator": {
+    "expiryNote": "The card will disappear in seven days, together with every personal word.",
+    "storySection": "Who this story is for",
+    "senderName": "Your name",
+    "recipientName": "Recipient's name",
+    "locksSection": "Five locks",
+    "introPhrase": "Opening phrase",
+    "afterLock": "After lock {number}",
+    "preHeartPhrase": "When the last lock disappears",
+    "insideSection": "What is hidden inside",
+    "finalMessage": "Final message",
+    "signature": "Signature, optional",
+    "signaturePlaceholder": "You can leave this blank",
+    "replyUrl": "Reply link, optional",
+    "replyUrlPlaceholder": "https://t.me/… or mailto:…",
+    "sound": "Story sounds",
+    "soundDescription": "The chime will play only after a lock is pressed; the recipient can turn it off.",
+    "submitting": "Sealing…",
+    "submit": "Create a private link",
+    "connectionError": "The connection was interrupted. Check it and try again.",
+    "openPreview": "Open live preview",
+    "previewTitle": "Card preview",
+    "previewDescription": "Switch between stages without actually opening the locks."
+  },
+  "Validation": {
+    "replyTooLong": "The link is too long",
+    "replyInvalid": "Use an https://… or mailto:… link",
+    "senderRequired": "Enter the sender's name",
+    "recipientRequired": "Enter the recipient's name",
+    "nameTooLong": "Use no more than 80 characters",
+    "introRequired": "Add an opening phrase",
+    "phraseRequired": "Add a phrase",
+    "preHeartRequired": "Add a phrase before the transition",
+    "finalRequired": "Add the final message",
+    "tooLong": "Use no more than {count} characters",
+    "checkFields": "Check the highlighted fields"
+  },
+  "Server": {
+    "quotaCheck": "We couldn't verify whether the card can be published. Try again.",
+    "quotaExceeded": "Too many cards were created recently. Try again in an hour.",
+    "saveFailed": "We couldn't save the card. Check the database connection and try again.",
+    "tokenFailed": "We couldn't create a unique link. Try again."
+  },
+  "Share": {
+    "nativeTitle": "For you — Unseal",
+    "nativeText": "I left something important here for you.",
+    "title": "Your card is sealed",
+    "description": "The link will work for seven days. Your personal words are not included in its address.",
+    "qrLabel": "Card QR code",
+    "urlLabel": "Card link",
+    "done": "Done",
+    "copy": "Copy",
+    "share": "Share",
+    "copiedFallback": "Copy",
+    "open": "Open the card"
+  },
+  "Preview": {
+    "stageGroup": "Preview stage",
+    "intro": "Beginning",
+    "lock1": "1 lock",
+    "lock2": "2 locks",
+    "lock3": "3 locks",
+    "lock4": "4 locks",
+    "unlocked": "Unlocked",
+    "inside": "Inside",
+    "final": "Finale"
+  },
+  "Card": {
+    "metadataTitle": "For you",
+    "button1": "Open the first lock",
+    "button2": "Continue",
+    "button3": "One more lock",
+    "button4": "Come a little closer",
+    "button5": "Open the heart",
+    "enter": "Look inside the heart",
+    "openingHeart": "The heart is opening",
+    "insideAnnouncement": "Now you are inside",
+    "finalAnnouncement": "Final message",
+    "heading": "A card for {name}",
+    "soundOff": "Turn sound off",
+    "soundOn": "Turn sound on",
+    "forRecipient": "For you, {name}"
+  },
+  "Final": {
+    "replay": "Experience this moment again",
+    "creatingPng": "Creating PNG…",
+    "saved": "Saved",
+    "save": "Save this memory",
+    "reply": "Reply to the sender",
+    "saveSuccess": "The image was saved to your downloads.",
+    "saveError": "We couldn't save the image. Try again.",
+    "prepareError": "Could not prepare the PNG",
+    "createError": "Could not create the PNG",
+    "logError": "Could not save the memory"
+  },
+  "Expired": {
+    "title": "This card has already closed",
+    "description": "Its words were kept for seven days and then gently deleted.",
+    "create": "Create a new story"
+  },
+  "NotFound": {
+    "title": "This story could not be found",
+    "description": "One character may be missing from the link."
+  },
+  "CardError": {
+    "title": "The card could not be opened",
+    "description": "The connection may have been interrupted. Try loading the story again.",
+    "retry": "Try again"
+  },
+  "Images": {
+    "heart": "A large pink heart tied with a delicate ribbon",
+    "inside": "A person in a hoodie looks toward a warm light in the distance"
+  }
+}

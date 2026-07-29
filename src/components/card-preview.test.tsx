@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CardPreview } from "@/components/card-preview";
 import { DEFAULT_CARD } from "@/lib/card-schema";
+import { renderWithIntl } from "../../test/render-with-intl";
 
 describe("CardPreview", () => {
   it("shows each selected lock state without mutating card content", () => {
-    render(<CardPreview card={DEFAULT_CARD} />);
+    renderWithIntl(<CardPreview card={DEFAULT_CARD} />);
 
     expect(
       screen.getByRole("group", { name: "Этап предпросмотра" }),
@@ -33,7 +34,7 @@ describe("CardPreview", () => {
   });
 
   it("renders the final message preview", () => {
-    render(<CardPreview card={DEFAULT_CARD} />);
+    renderWithIntl(<CardPreview card={DEFAULT_CARD} />);
     fireEvent.click(screen.getByRole("button", { name: "Финал" }));
 
     const panel = screen.getByTestId("final-message-panel");
@@ -51,7 +52,7 @@ describe("CardPreview", () => {
   });
 
   it("does not mount the heavy keepsake until download is requested", () => {
-    render(
+    renderWithIntl(
       <CardPreview
         card={{
           ...DEFAULT_CARD,
@@ -66,7 +67,7 @@ describe("CardPreview", () => {
   });
 
   it("hides the removed paragraph in legacy default cards", () => {
-    render(
+    renderWithIntl(
       <CardPreview
         card={{
           ...DEFAULT_CARD,

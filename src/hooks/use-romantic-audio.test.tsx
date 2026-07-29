@@ -217,7 +217,7 @@ describe("useRomanticAudio", () => {
     fireEvent.click(screen.getByRole("button", { name: "Показать финал" }));
     act(() => vi.advanceTimersByTime(1_600));
 
-    expect(music?.volume).toBeCloseTo(0.2);
+    expect(music?.volume).toBeCloseTo(0.28);
   });
 
   it("resumes a suspended mobile audio context before the transition tone", async () => {

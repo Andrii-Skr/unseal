@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { CardInput } from "@/lib/card-schema";
 import { prisma } from "@/lib/prisma";
 import { isCardExpired } from "@/lib/tokens";
@@ -17,7 +18,7 @@ type CleanupExpiredCardsOptions = {
 
 type PublicCardResult =
   | { status: "missing" }
-  | { status: "expired" }
+  | { status: "expired"; language: CardInput["language"] }
   | { status: "active"; card: CardInput };
 
 export async function readPublicCard(token: string): Promise<PublicCardResult> {
@@ -30,7 +31,7 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
   if (!card) {
     const expiredToken = await prisma.expiredCardToken.findUnique({
       where: { token },
-      select: { retainedUntil: true },
+      select: { retainedUntil: true, language: true },
     });
     if (!expiredToken) return { status: "missing" };
 
@@ -42,7 +43,7 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
       return { status: "missing" };
     }
 
-    return { status: "expired" };
+    return { status: "expired", language: expiredToken.language };
   }
 
   if (isCardExpired(card.expiresAt)) {
@@ -56,6 +57,7 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
           retainedUntil: new Date(
             now.getTime() + EXPIRED_TOKEN_RETENTION_MS,
           ),
+          language: card.language,
         },
         update: {},
       }),
@@ -63,7 +65,7 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
         where: { id: card.id, expiresAt: { lte: now } },
       }),
     ]);
-    return { status: "expired" };
+    return { status: "expired", language: card.language };
   }
 
   if (card.intermediatePhrases.length !== 4) {
@@ -74,6 +76,7 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
     status: "active",
     card: {
       senderName: card.senderName,
+      language: card.language,
       recipientName: card.recipientName,
       introPhrase: card.introPhrase,
       intermediatePhrases: [
@@ -90,6 +93,8 @@ export async function readPublicCard(token: string): Promise<PublicCardResult> {
     },
   };
 }
+
+export const getPublicCard = cache(readPublicCard);
 
 export async function cleanupExpiredCards(
   now = new Date(),
@@ -136,6 +141,7 @@ export async function cleanupExpiredCards(
             id: true,
             token: true,
             expiresAt: true,
+            language: true,
           },
         });
         if (expiredCards.length === 0) {
@@ -147,6 +153,7 @@ export async function cleanupExpiredCards(
             token: card.token,
             expiredAt: card.expiresAt,
             retainedUntil,
+            language: card.language,
           })),
           skipDuplicates: true,
         });

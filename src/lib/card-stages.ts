@@ -9,18 +9,15 @@ export type CardStage =
   | "inside-heart"
   | "final-message";
 
-export const PREVIEW_STAGES: Array<{
-  value: CardStage;
-  label: string;
-}> = [
-  { value: "intro", label: "Начало" },
-  { value: "lock-1-opened", label: "1 замок" },
-  { value: "lock-2-opened", label: "2 замка" },
-  { value: "lock-3-opened", label: "3 замка" },
-  { value: "lock-4-opened", label: "4 замка" },
-  { value: "all-locks-opened", label: "Без замков" },
-  { value: "inside-heart", label: "Внутри" },
-  { value: "final-message", label: "Финал" },
+export const PREVIEW_STAGES: CardStage[] = [
+  "intro",
+  "lock-1-opened",
+  "lock-2-opened",
+  "lock-3-opened",
+  "lock-4-opened",
+  "all-locks-opened",
+  "inside-heart",
+  "final-message",
 ];
 
 const OPENED_LOCKS: Record<CardStage, number> = {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, Share2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,9 @@ export function ShareCardDialog({
   onOpenChange,
   url,
 }: ShareCardDialogProps) {
+  const locale = useLocale();
+  const t = useTranslations("Share");
+  const commonT = useTranslations("Common");
   const [copied, setCopied] = useState(false);
   const canShare = useSyncExternalStore(
     subscribeToShareCapability,
@@ -109,8 +113,8 @@ export function ShareCardDialog({
 
     try {
       await navigator.share({
-        title: "Для тебя — Unseal",
-        text: "Я оставил(а) для тебя кое-что важное.",
+        title: t("nativeTitle"),
+        text: t("nativeText"),
         url,
       });
     } catch (error) {
@@ -124,20 +128,20 @@ export function ShareCardDialog({
       <DialogContent
         className="paper-surface top-[50dvh] max-h-[calc(100dvh-1rem)] max-w-md overflow-hidden border-[var(--rose-deep)]/15 p-0 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:max-w-md"
         style={{ position: "fixed" }}
+        closeLabel={commonT("close")}
       >
         <div className="scrollbar-soft grid min-h-0 gap-4 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-6 sm:p-6">
           <DialogHeader className="pr-7 text-center">
             <DialogTitle className="font-heading text-3xl text-[var(--ink)]">
-              Открытка запечатана
+              {t("title")}
             </DialogTitle>
             <DialogDescription className="leading-6">
-              Ссылка будет работать семь дней. Личные слова не содержатся в её
-              адресе.
+              {t("description")}
             </DialogDescription>
           </DialogHeader>
 
           <div
-            aria-label="QR-код открытки"
+            aria-label={t("qrLabel")}
             className="mx-auto rounded-[1.5rem] bg-white p-3 shadow-sm sm:p-4"
             role="img"
           >
@@ -156,7 +160,7 @@ export function ShareCardDialog({
           </div>
 
           <input
-            aria-label="Ссылка на открытку"
+            aria-label={t("urlLabel")}
             className="w-full truncate rounded-xl border border-[var(--rose-deep)]/15 bg-white/55 px-3 py-2 text-center text-xs text-[var(--ink-soft)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--rose-deep)]/40"
             onFocus={(event) => event.currentTarget.select()}
             readOnly
@@ -172,7 +176,7 @@ export function ShareCardDialog({
               size="lg"
             >
               {copied ? <Check /> : <Copy />}
-              {copied ? "Готово" : "Копировать"}
+              {copied ? t("done") : t("copy")}
             </Button>
             <Button
               className="romantic-button-outline px-3"
@@ -181,15 +185,15 @@ export function ShareCardDialog({
               variant="outline"
             >
               <Share2 />
-              {canShare ? "Поделиться" : "Скопировать"}
+              {canShare ? t("share") : t("copiedFallback")}
             </Button>
           </div>
 
           <Link
             className="romantic-link mx-auto inline-flex gap-2"
-            href={url || "/create"}
+            href={url || `/${locale}/create`}
           >
-            Открыть открытку
+            {t("open")}
             <ExternalLink aria-hidden="true" className="size-4" />
           </Link>
         </div>

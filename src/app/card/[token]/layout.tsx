@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessagesForLocale } from "@/i18n/messages";
 
 export const metadata: Metadata = {
-  title: "Для тебя",
+  title: "For you",
   robots: {
     index: false,
     follow: false,
@@ -20,5 +22,12 @@ export const viewport: Viewport = {
 export default function CardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <NextIntlClientProvider
+      locale="en"
+      messages={getMessagesForLocale("en")}
+    >
+      {children}
+    </NextIntlClientProvider>
+  );
 }

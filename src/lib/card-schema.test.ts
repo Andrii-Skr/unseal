@@ -1,12 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   cardInputSchema,
+  createCardInputSchema,
   DEFAULT_CARD,
   DEFAULT_FINAL_MESSAGE,
+  getDefaultCard,
   makeSignature,
 } from "@/lib/card-schema";
 
 describe("cardInputSchema", () => {
+  it("provides localized defaults and validation messages", () => {
+    expect(getDefaultCard("en").language).toBe("en");
+    expect(getDefaultCard("uk").introPhrase).toContain("замками");
+
+    const result = createCardInputSchema("en").safeParse({
+      ...getDefaultCard("en"),
+      senderName: "",
+    });
+    expect(result.error?.issues[0]?.message).toBe(
+      "Enter the sender's name",
+    );
+  });
+
   it("does not include the removed gifts paragraph in the default message", () => {
     expect(DEFAULT_FINAL_MESSAGE).not.toContain(
       "Здесь нет подарков и драгоценностей.",

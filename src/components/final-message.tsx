@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, MessageCircle, RotateCcw } from "lucide-react";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import type { CardInput } from "@/lib/card-schema";
@@ -22,6 +23,7 @@ type FinalMessageProps = {
 const LEGACY_DEFAULT_HEADING =
   "Теперь между тобой и моими чувствами не осталось ни одного замка.";
 const LEGACY_GIFTS_PARAGRAPH = "Здесь нет подарков и драгоценностей.";
+const KEEPSAKE_BACKGROUND_URL = "/art/inside-heart-portrait.png";
 
 function safeFilename(value: string) {
   return value
@@ -35,6 +37,90 @@ function isPoemBlock(block: string) {
   return block.includes("\n");
 }
 
+async function loadImageDataUrl(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Unable to load ${url}`);
+  }
+
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener(
+      "load",
+      () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+          return;
+        }
+
+        reject(new Error(`Unable to read ${url}`));
+      },
+      { once: true },
+    );
+    reader.addEventListener(
+      "error",
+      () => reject(reader.error ?? new Error(`Unable to read ${url}`)),
+      { once: true },
+    );
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadCanvasImage(src: string) {
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.addEventListener("load", () => resolve(image), { once: true });
+    image.addEventListener(
+      "error",
+      () => reject(new Error("Unable to decode keepsake background")),
+      { once: true },
+    );
+    image.src = src;
+  });
+}
+
+function drawCoverImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(
+    width / image.naturalWidth,
+    height / image.naturalHeight,
+  );
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
+  const sourceX = (image.naturalWidth - sourceWidth) / 2;
+  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    width,
+    height,
+  );
+}
+
+async function canvasToBlob(canvas: HTMLCanvasElement) {
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+
+      reject(new Error("Unable to encode keepsake"));
+    }, "image/png");
+  });
+}
+
 type KeepsakeContentProps = {
   blocks: string[];
   signature: string;
@@ -46,7 +132,7 @@ export function KeepsakeContent({
 }: KeepsakeContentProps) {
   return (
     <div
-      className="w-full rounded-[40px] bg-[#5b3548]/62 px-[50px] py-[44px] text-center shadow-[0_28px_90px_rgba(62,30,45,.3)] backdrop-blur-sm"
+      className="relative z-10 w-full rounded-[40px] bg-[#5b3548]/62 px-[50px] py-[44px] text-center shadow-[0_28px_90px_rgba(62,30,45,.3)] backdrop-blur-sm"
       data-testid="keepsake-content"
     >
       {blocks.map((block, index) => (
@@ -81,6 +167,7 @@ export function FinalMessage({
   compact = false,
   preview = false,
 }: FinalMessageProps) {
+  const t = useTranslations("Final");
   const reduceMotion = usePrefersReducedMotion();
   const [controlsRevealed, setControlsRevealed] = useState(
     preview || reduceMotion,
@@ -122,20 +209,24 @@ export function FinalMessage({
     setKeepsakeMounted(true);
 
     try {
+      const backgroundDataUrl = await loadImageDataUrl(
+        KEEPSAKE_BACKGROUND_URL,
+      );
+      const backgroundImage = await loadCanvasImage(backgroundDataUrl);
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => resolve());
       });
       await document.fonts.ready;
       if (!keepsakeRef.current) {
-        throw new Error("Не удалось подготовить PNG");
+        throw new Error(t("prepareError"));
       }
 
       const exportHeight = Math.max(
         1350,
         Math.ceil(keepsakeRef.current.scrollHeight),
       );
-      const { toBlob } = await import("html-to-image");
-      const imageBlob = await toBlob(keepsakeRef.current, {
+      const { toCanvas } = await import("html-to-image");
+      const contentCanvas = await toCanvas(keepsakeRef.current, {
         width: 1080,
         height: exportHeight,
         pixelRatio: 1,
@@ -148,10 +239,51 @@ export function FinalMessage({
           transform: "none",
         },
       });
-      if (!imageBlob) {
-        throw new Error("Не удалось создать PNG");
+
+      const keepsakeCanvas = document.createElement("canvas");
+      keepsakeCanvas.width = 1080;
+      keepsakeCanvas.height = exportHeight;
+      const context = keepsakeCanvas.getContext("2d");
+      if (!context) {
+        throw new Error(t("createError"));
       }
 
+      context.fillStyle = "#b66f86";
+      context.fillRect(0, 0, keepsakeCanvas.width, keepsakeCanvas.height);
+      drawCoverImage(
+        context,
+        backgroundImage,
+        keepsakeCanvas.width,
+        keepsakeCanvas.height,
+      );
+
+      const vignette = context.createLinearGradient(
+        0,
+        keepsakeCanvas.height,
+        0,
+        0,
+      );
+      vignette.addColorStop(0, "rgba(74, 38, 55, .62)");
+      vignette.addColorStop(0.58, "rgba(74, 38, 55, .06)");
+      vignette.addColorStop(1, "rgba(74, 38, 55, .06)");
+      context.fillStyle = vignette;
+      context.fillRect(0, 0, keepsakeCanvas.width, keepsakeCanvas.height);
+
+      const glow = context.createRadialGradient(
+        keepsakeCanvas.width * 0.68,
+        keepsakeCanvas.height * 0.23,
+        0,
+        keepsakeCanvas.width * 0.68,
+        keepsakeCanvas.height * 0.23,
+        keepsakeCanvas.width * 0.34,
+      );
+      glow.addColorStop(0, "rgba(255, 235, 184, .27)");
+      glow.addColorStop(1, "rgba(255, 235, 184, 0)");
+      context.fillStyle = glow;
+      context.fillRect(0, 0, keepsakeCanvas.width, keepsakeCanvas.height);
+      context.drawImage(contentCanvas, 0, 0);
+
+      const imageBlob = await canvasToBlob(keepsakeCanvas);
       const objectUrl = URL.createObjectURL(imageBlob);
       const link = document.createElement("a");
       link.download = `unseal-${safeFilename(card.recipientName) || "memory"}.png`;
@@ -163,7 +295,7 @@ export function FinalMessage({
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       setSaveStatus("success");
     } catch (error) {
-      console.error("Не удалось сохранить воспоминание", error);
+      console.error(t("logError"), error);
       setSaveStatus("error");
     } finally {
       setKeepsakeMounted(false);
@@ -259,7 +391,7 @@ export function FinalMessage({
               size="lg"
             >
               <RotateCcw aria-hidden="true" />
-              Пережить этот момент ещё раз
+              {t("replay")}
             </Button>
             <Button
               className="romantic-button-outline border-white/40 bg-white/15 text-white hover:bg-white/25 hover:text-white"
@@ -270,10 +402,10 @@ export function FinalMessage({
             >
               <Download aria-hidden="true" />
               {saving
-                ? "Создаём PNG…"
+                ? t("creatingPng")
                 : saveStatus === "success"
-                  ? "Сохранено"
-                  : "Сохранить воспоминание"}
+                  ? t("saved")
+                  : t("save")}
             </Button>
             {card.replyUrl ? (
               <a
@@ -288,7 +420,7 @@ export function FinalMessage({
                 target="_blank"
               >
                 <MessageCircle aria-hidden="true" className="size-4" />
-                Ответить отправителю
+                {t("reply")}
               </a>
             ) : null}
             <p
@@ -302,9 +434,9 @@ export function FinalMessage({
               role="status"
             >
               {saveStatus === "success"
-                ? "Изображение сохранено в загрузки."
+                ? t("saveSuccess")
                 : saveStatus === "error"
-                  ? "Не удалось сохранить изображение. Попробуйте ещё раз."
+                  ? t("saveError")
                   : ""}
             </p>
           </motion.div>
@@ -314,14 +446,9 @@ export function FinalMessage({
       {keepsakeMounted ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed left-[-10000px] top-0 flex min-h-[1350px] w-[1080px] items-end bg-[#b66f86] p-[60px] text-white"
+          className="pointer-events-none fixed left-[-10000px] top-0 flex min-h-[1350px] w-[1080px] items-end overflow-hidden p-[60px] text-white"
+          data-testid="keepsake-export"
           ref={keepsakeRef}
-          style={{
-            backgroundImage:
-              "linear-gradient(0deg, rgba(74,38,55,.62), rgba(74,38,55,.06) 58%), url('/art/inside-heart-portrait.png')",
-            backgroundPosition: "center",
-            backgroundSize: "cover",
-          }}
         >
           <KeepsakeContent blocks={blocks} signature={card.signature} />
         </div>

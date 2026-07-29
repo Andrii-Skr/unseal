@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { HeartZoomTransition } from "@/components/heart-zoom-transition";
 import { InsideHeartScene } from "@/components/inside-heart-scene";
 import { RomanticLock } from "@/components/romantic-lock";
+import { renderWithIntl } from "../../test/render-with-intl";
 
 describe("responsive image configuration", () => {
   it("caps lock image sizes on desktop", () => {
@@ -28,17 +29,23 @@ describe("responsive image configuration", () => {
     );
   });
 
-  it("uses the current Next.js eager-loading API for the late transition", () => {
-    const { container } = render(<HeartZoomTransition />);
-
-    expect(container.querySelector("img")).toHaveAttribute(
-      "loading",
-      "eager",
+  it("zooms the existing heart content instead of rendering another image", () => {
+    const { getByTestId, queryByRole } = render(
+      <HeartZoomTransition active onComplete={vi.fn()}>
+        <span data-testid="existing-heart">heart</span>
+      </HeartZoomTransition>,
     );
+
+    expect(getByTestId("heart-zoom-transition")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    expect(getByTestId("existing-heart")).toBeInTheDocument();
+    expect(queryByRole("img")).not.toBeInTheDocument();
   });
 
   it("sizes fixed inside-scene layers with the dynamic viewport", () => {
-    const { container, getByTestId, unmount } = render(
+    const { container, getByTestId, unmount } = renderWithIntl(
       <InsideHeartScene />,
     );
     const backdrop = getByTestId("inside-heart-backdrop");

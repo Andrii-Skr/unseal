@@ -2,11 +2,12 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Unseal — романтическая открытка",
+    name: "Unseal — a romantic card",
     short_name: "Unseal",
     description:
-      "Персональная романтическая история с пятью замками и посланием внутри сердца.",
-    start_url: "/create",
+      "A personal romantic story with five locks and a message hidden inside a heart.",
+    start_url: "/en/create",
+    lang: "en",
     display: "standalone",
     background_color: "#f7efe2",
     theme_color: "#a85571",

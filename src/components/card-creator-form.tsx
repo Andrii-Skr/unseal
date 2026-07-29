@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, Heart, LockKeyhole, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Controller,
   useForm,
@@ -27,18 +28,120 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  cardInputSchema,
-  DEFAULT_CARD,
+  createCardInputSchema,
+  getDefaultCard,
   makeSignature,
   type CardInput,
 } from "@/lib/card-schema";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import {
+  isAppLocale,
+  routing,
+  type AppLocale,
+} from "@/i18n/routing";
 
+const CREATE_DRAFT_KEY = "unseal:create-locale-draft";
+const TEXT_FIELD_NAMES = [
+  "senderName",
+  "recipientName",
+  "introPhrase",
+  "preHeartPhrase",
+  "finalMessage",
+  "signature",
+  "replyUrl",
+] as const;
 const INTERMEDIATE_PATHS = [
   "intermediatePhrases.0",
   "intermediatePhrases.1",
   "intermediatePhrases.2",
   "intermediatePhrases.3",
 ] as const;
+
+type CardDirtyFields = Partial<
+  Record<(typeof TEXT_FIELD_NAMES)[number] | "soundEnabled", boolean>
+> & {
+  intermediatePhrases?: readonly (boolean | undefined)[];
+};
+
+type CardLocaleDraft = Partial<
+  Pick<
+    CardInput,
+    (typeof TEXT_FIELD_NAMES)[number] | "soundEnabled"
+  >
+> & {
+  intermediatePhrases?: Array<string | null>;
+};
+
+function createLocaleDraft(
+  values: CardInput,
+  dirtyFields: CardDirtyFields,
+): CardLocaleDraft {
+  const draft: CardLocaleDraft = {};
+  const draftRecord = draft as Record<string, unknown>;
+  const valuesRecord = values as unknown as Record<string, unknown>;
+
+  for (const field of TEXT_FIELD_NAMES) {
+    if (dirtyFields[field]) {
+      draftRecord[field] = valuesRecord[field];
+    }
+  }
+
+  if (dirtyFields.soundEnabled) {
+    draft.soundEnabled = values.soundEnabled;
+  }
+
+  const intermediatePhrases = values.intermediatePhrases.map(
+    (phrase, index) =>
+      dirtyFields.intermediatePhrases?.[index] ? phrase : null,
+  );
+  if (intermediatePhrases.some((phrase) => phrase !== null)) {
+    draft.intermediatePhrases = intermediatePhrases;
+  }
+
+  return draft;
+}
+
+function restoreLocaleDraft(
+  value: unknown,
+  defaultCard: CardInput,
+): { card: CardInput; signatureEdited: boolean } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const draft = value as Record<string, unknown>;
+  const card: CardInput = {
+    ...defaultCard,
+    intermediatePhrases: [...defaultCard.intermediatePhrases],
+  };
+  const cardRecord = card as unknown as Record<string, unknown>;
+
+  for (const field of TEXT_FIELD_NAMES) {
+    if (typeof draft[field] === "string") {
+      cardRecord[field] = draft[field];
+    }
+  }
+
+  if (typeof draft.soundEnabled === "boolean") {
+    card.soundEnabled = draft.soundEnabled;
+  }
+
+  const intermediateDraft = draft.intermediatePhrases;
+  if (Array.isArray(intermediateDraft)) {
+    card.intermediatePhrases = card.intermediatePhrases.map(
+      (phrase, index) =>
+        typeof intermediateDraft[index] === "string"
+          ? intermediateDraft[index]
+          : phrase,
+    ) as CardInput["intermediatePhrases"];
+  }
+
+  return {
+    card,
+    signatureEdited: typeof draft.signature === "string",
+  };
+}
+
 const CARD_FIELD_PATHS = new Set<string>([
   "senderName",
   "recipientName",
@@ -86,7 +189,17 @@ function SectionTitle({
   );
 }
 
-export function CardCreatorForm() {
+type CardCreatorFormProps = {
+  locale: AppLocale;
+};
+
+export function CardCreatorForm({ locale }: CardCreatorFormProps) {
+  const t = useTranslations("Creator");
+  const languageT = useTranslations("Language");
+  const commonT = useTranslations("Common");
+  const pathname = usePathname();
+  const router = useRouter();
+  const defaultCard = useMemo(() => getDefaultCard(locale), [locale]);
   const signatureEdited = useRef(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -96,14 +209,16 @@ export function CardCreatorForm() {
 
   const {
     control,
-    formState: { errors },
+    formState: { dirtyFields, errors, isDirty },
+    getValues,
     handleSubmit,
     register,
+    reset,
     setError,
     setValue,
   } = useForm<CardInput>({
-    defaultValues: DEFAULT_CARD,
-    resolver: zodResolver(cardInputSchema),
+    defaultValues: defaultCard,
+    resolver: zodResolver(createCardInputSchema(locale)),
     mode: "onBlur",
   });
 
@@ -113,33 +228,66 @@ export function CardCreatorForm() {
   const deferredValues = useDeferredValue(values);
 
   useEffect(() => {
+    const savedDraft = window.sessionStorage.getItem(CREATE_DRAFT_KEY);
+    if (!savedDraft) return;
+    window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
+
+    try {
+      const restored = restoreLocaleDraft(
+        JSON.parse(savedDraft),
+        defaultCard,
+      );
+      if (!restored) return;
+      signatureEdited.current = restored.signatureEdited;
+      reset(restored.card, { keepDefaultValues: true });
+    } catch {
+      // Ignore an invalid or stale one-time draft.
+    }
+  }, [defaultCard, reset]);
+
+  useEffect(() => {
     if (!signatureEdited.current) {
-      setValue("signature", makeSignature(recipientName, senderName), {
+      setValue("signature", makeSignature(recipientName, senderName, locale), {
         shouldDirty: false,
       });
     }
-  }, [recipientName, senderName, setValue]);
+  }, [locale, recipientName, senderName, setValue]);
 
   const previewCard = useMemo<CardInput>(
     () => ({
-      ...DEFAULT_CARD,
+      ...defaultCard,
       ...deferredValues,
       intermediatePhrases: [
         deferredValues.intermediatePhrases?.[0] ??
-          DEFAULT_CARD.intermediatePhrases[0],
+          defaultCard.intermediatePhrases[0],
         deferredValues.intermediatePhrases?.[1] ??
-          DEFAULT_CARD.intermediatePhrases[1],
+          defaultCard.intermediatePhrases[1],
         deferredValues.intermediatePhrases?.[2] ??
-          DEFAULT_CARD.intermediatePhrases[2],
+          defaultCard.intermediatePhrases[2],
         deferredValues.intermediatePhrases?.[3] ??
-          DEFAULT_CARD.intermediatePhrases[3],
+          defaultCard.intermediatePhrases[3],
       ],
       replyUrl: deferredValues.replyUrl ?? "",
     }),
-    [deferredValues],
+    [defaultCard, deferredValues],
   );
 
   const signatureField = register("signature");
+
+  function changeLocale(nextLocale: string) {
+    if (!isAppLocale(nextLocale) || nextLocale === locale) return;
+    if (isDirty) {
+      window.sessionStorage.setItem(
+        CREATE_DRAFT_KEY,
+        JSON.stringify(
+          createLocaleDraft(getValues(), dirtyFields as CardDirtyFields),
+        ),
+      );
+    } else {
+      window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
+    }
+    router.replace(pathname, { locale: nextLocale });
+  }
 
   const onSubmit = handleSubmit(async (data) => {
     setSubmitting(true);
@@ -170,7 +318,7 @@ export function CardCreatorForm() {
       setShareOpen(true);
     } catch {
       setServerError(
-        "Связь прервалась. Проверьте подключение и попробуйте ещё раз.",
+        t("connectionError"),
       );
     } finally {
       setSubmitting(false);
@@ -185,12 +333,29 @@ export function CardCreatorForm() {
             Unseal
           </h1>
           <p className="mt-1 max-w-md text-sm leading-6 text-[var(--ink-soft)]">
-            Некоторые чувства стоит открывать не спеша
+            {commonT("brandTagline")}
           </p>
         </div>
-        <p className="hidden max-w-xs text-right text-xs leading-5 text-[var(--ink-soft)] lg:block">
-          Открытка исчезнет через семь дней — вместе со всеми личными словами.
-        </p>
+        <div className="flex flex-col items-end gap-3">
+          <label className="flex items-center gap-2 text-xs text-[var(--ink-soft)]">
+            <span>{languageT("label")}</span>
+            <select
+              aria-label={languageT("label")}
+              className="romantic-input h-9 rounded-full px-3"
+              onChange={(event) => changeLocale(event.target.value)}
+              value={locale}
+            >
+              {routing.locales.map((item) => (
+                <option key={item} value={item}>
+                  {languageT(item)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hidden max-w-xs text-right text-xs leading-5 text-[var(--ink-soft)] lg:block">
+            {t("expiryNote")}
+          </p>
+        </div>
       </header>
 
       <div className="mx-auto grid max-w-[92rem] gap-10 px-5 pb-28 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,.86fr)] lg:px-10">
@@ -201,11 +366,11 @@ export function CardCreatorForm() {
         >
           <section>
             <SectionTitle icon={<Heart className="size-4" />}>
-              Для кого эта история
+              {t("storySection")}
             </SectionTitle>
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <Label htmlFor="senderName">Ваше имя</Label>
+                <Label htmlFor="senderName">{t("senderName")}</Label>
                 <Input
                   aria-describedby={
                     errors.senderName ? "senderName-error" : undefined
@@ -220,7 +385,7 @@ export function CardCreatorForm() {
                 <ErrorText error={errors.senderName} id="senderName-error" />
               </div>
               <div>
-                <Label htmlFor="recipientName">Имя получателя</Label>
+                <Label htmlFor="recipientName">{t("recipientName")}</Label>
                 <Input
                   aria-describedby={
                     errors.recipientName ? "recipientName-error" : undefined
@@ -244,11 +409,11 @@ export function CardCreatorForm() {
 
           <section>
             <SectionTitle icon={<LockKeyhole className="size-4" />}>
-              Пять замков
+              {t("locksSection")}
             </SectionTitle>
             <div className="space-y-5">
               <div>
-                <Label htmlFor="introPhrase">Начальная фраза</Label>
+                <Label htmlFor="introPhrase">{t("introPhrase")}</Label>
                 <Textarea
                   aria-describedby={
                     errors.introPhrase ? "introPhrase-error" : undefined
@@ -263,10 +428,10 @@ export function CardCreatorForm() {
                 <ErrorText error={errors.introPhrase} id="introPhrase-error" />
               </div>
 
-              {DEFAULT_CARD.intermediatePhrases.map((_, index) => (
+              {defaultCard.intermediatePhrases.map((_, index) => (
                 <div key={index}>
                   <Label htmlFor={`intermediate-${index}`}>
-                    После замка {index + 1}
+                    {t("afterLock", { number: index + 1 })}
                   </Label>
                   <Textarea
                     aria-describedby={
@@ -292,7 +457,7 @@ export function CardCreatorForm() {
 
               <div>
                 <Label htmlFor="preHeartPhrase">
-                  Когда последний замок исчез
+                  {t("preHeartPhrase")}
                 </Label>
                 <Textarea
                   aria-describedby={
@@ -317,11 +482,11 @@ export function CardCreatorForm() {
 
           <section>
             <SectionTitle icon={<Sparkles className="size-4" />}>
-              То, что спрятано внутри
+              {t("insideSection")}
             </SectionTitle>
             <div className="space-y-5">
               <div>
-                <Label htmlFor="finalMessage">Финальное послание</Label>
+                <Label htmlFor="finalMessage">{t("finalMessage")}</Label>
                 <Textarea
                   aria-describedby={
                     errors.finalMessage ? "finalMessage-error" : undefined
@@ -339,7 +504,7 @@ export function CardCreatorForm() {
                 />
               </div>
               <div>
-                <Label htmlFor="signature">Подпись, необязательно</Label>
+                <Label htmlFor="signature">{t("signature")}</Label>
                 <Textarea
                   {...signatureField}
                   aria-describedby={
@@ -349,7 +514,7 @@ export function CardCreatorForm() {
                   className="romantic-input mt-2 min-h-24 resize-y"
                   id="signature"
                   maxLength={500}
-                  placeholder="Можно оставить пустой"
+                  placeholder={t("signaturePlaceholder")}
                   onChange={(event) => {
                     signatureEdited.current = true;
                     signatureField.onChange(event);
@@ -358,7 +523,7 @@ export function CardCreatorForm() {
                 <ErrorText error={errors.signature} id="signature-error" />
               </div>
               <div>
-                <Label htmlFor="replyUrl">Ссылка для ответа, необязательно</Label>
+                <Label htmlFor="replyUrl">{t("replyUrl")}</Label>
                 <Input
                   aria-describedby={
                     errors.replyUrl ? "replyUrl-error" : undefined
@@ -367,7 +532,7 @@ export function CardCreatorForm() {
                   className="romantic-input mt-2 h-11"
                   id="replyUrl"
                   maxLength={500}
-                  placeholder="https://t.me/… или mailto:…"
+                  placeholder={t("replyUrlPlaceholder")}
                   {...register("replyUrl")}
                 />
                 <ErrorText error={errors.replyUrl} id="replyUrl-error" />
@@ -378,13 +543,12 @@ export function CardCreatorForm() {
                 render={({ field }) => (
                   <div className="flex items-center justify-between gap-6 rounded-2xl border border-[var(--rose-deep)]/15 bg-white/35 px-4 py-4">
                     <div>
-                      <Label htmlFor="soundEnabled">Звуки истории</Label>
+                      <Label htmlFor="soundEnabled">{t("sound")}</Label>
                       <p
                         className="mt-1 text-xs leading-5 text-[var(--ink-soft)]"
                         id="soundEnabled-description"
                       >
-                        Колокольчик прозвучит только после нажатия на замок;
-                        получатель сможет выключить его.
+                        {t("soundDescription")}
                       </p>
                     </div>
                     <Switch
@@ -415,7 +579,7 @@ export function CardCreatorForm() {
             type="submit"
           >
             <Heart aria-hidden="true" />
-            {submitting ? "Запечатываем…" : "Создать личную ссылку"}
+            {submitting ? t("submitting") : t("submit")}
           </Button>
         </form>
 
@@ -433,7 +597,7 @@ export function CardCreatorForm() {
           variant="outline"
         >
           <Eye aria-hidden="true" />
-          Открыть живой предпросмотр
+          {t("openPreview")}
         </Button>
       </div>
 
@@ -446,13 +610,14 @@ export function CardCreatorForm() {
             maxHeight: "100dvh",
             position: "fixed",
           }}
+          closeLabel={commonT("close")}
         >
           <SheetHeader className="pr-12 pt-[max(1rem,env(safe-area-inset-top))]">
             <SheetTitle className="font-heading text-2xl">
-              Предпросмотр открытки
+              {t("previewTitle")}
             </SheetTitle>
             <SheetDescription>
-              Переключайте состояния, не открывая замки по-настоящему.
+              {t("previewDescription")}
             </SheetDescription>
           </SheetHeader>
           <CardPreview

@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
-import { CardCreatorForm } from "@/components/card-creator-form";
-
-export const metadata: Metadata = {
-  title: "Создать открытку",
-};
+import { redirect } from "next/navigation";
 
 export default function CreateCardPage() {
-  return <CardCreatorForm />;
+  redirect("/en/create");
 }

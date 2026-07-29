@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FinalMessage,
   KeepsakeContent,
 } from "@/components/final-message";
 import { DEFAULT_CARD } from "@/lib/card-schema";
+import { renderWithIntl } from "../../test/render-with-intl";
 
 const originalMatchMedia = window.matchMedia;
 
@@ -33,7 +34,9 @@ afterEach(() => {
 describe("FinalMessage", () => {
   it("shows controls immediately when reduced motion is preferred", () => {
     useReducedMotionPreference();
-    render(<FinalMessage card={DEFAULT_CARD} onReplay={() => undefined} />);
+    renderWithIntl(
+      <FinalMessage card={DEFAULT_CARD} onReplay={() => undefined} />,
+    );
 
     expect(
       screen.getByRole("button", { name: "Сохранить воспоминание" }),
@@ -47,7 +50,7 @@ describe("FinalMessage", () => {
 
   it("keeps the reply link unfocusable until controls are revealed", () => {
     vi.useFakeTimers();
-    render(
+    renderWithIntl(
       <FinalMessage
         card={{ ...DEFAULT_CARD, replyUrl: "https://example.com/reply" }}
         onReplay={() => undefined}
@@ -66,7 +69,9 @@ describe("FinalMessage", () => {
   it("prevents replay while a keepsake is being prepared", () => {
     useReducedMotionPreference();
     vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
-    render(<FinalMessage card={DEFAULT_CARD} onReplay={() => undefined} />);
+    renderWithIntl(
+      <FinalMessage card={DEFAULT_CARD} onReplay={() => undefined} />,
+    );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Сохранить воспоминание" }),
@@ -80,12 +85,13 @@ describe("FinalMessage", () => {
     expect(
       screen.getByRole("button", { name: "Создаём PNG…" }),
     ).toBeDisabled();
+    expect(screen.getByTestId("keepsake-export")).toBeInTheDocument();
   });
 
   it("puts every final-message block into the keepsake", () => {
     const blocks = DEFAULT_CARD.finalMessage.split(/\n\s*\n/);
 
-    render(
+    renderWithIntl(
       <KeepsakeContent
         blocks={blocks}
         signature={DEFAULT_CARD.signature}

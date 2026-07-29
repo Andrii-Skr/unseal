@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CardError from "@/app/card/[token]/error";
+import { renderWithIntl } from "../../../../test/render-with-intl";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -15,11 +16,12 @@ describe("CardError", () => {
     const unstableRetry = vi.fn();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    render(
+    renderWithIntl(
       <CardError
         error={new Error("database credentials leaked here")}
         unstable_retry={unstableRetry}
       />,
+      "ru",
     );
 
     expect(

@@ -2,9 +2,11 @@
 
 import { Prisma } from "@/generated/prisma/client";
 import {
-  cardInputSchema,
+  createCardInputSchema,
+  resolveCardLocale,
   type CardInput,
 } from "@/lib/card-schema";
+import { getMessagesForLocale } from "@/i18n/messages";
 import {
   CardCreationQuotaExceededError,
   enforceCardCreationQuota,
@@ -18,7 +20,9 @@ export type CreateCardResult =
   | { ok: false; message: string; fields?: Record<string, string[]> };
 
 export async function createCard(input: CardInput): Promise<CreateCardResult> {
-  const parsed = cardInputSchema.safeParse(input);
+  const locale = resolveCardLocale(input?.language);
+  const messages = getMessagesForLocale(locale);
+  const parsed = createCardInputSchema(locale).safeParse(input);
 
   if (!parsed.success) {
     const fields: Record<string, string[]> = {};
@@ -30,7 +34,7 @@ export async function createCard(input: CardInput): Promise<CreateCardResult> {
 
     return {
       ok: false,
-      message: "Проверьте заполненные поля",
+      message: messages.Validation.checkFields,
       fields,
     };
   }
@@ -42,8 +46,7 @@ export async function createCard(input: CardInput): Promise<CreateCardResult> {
     console.error("Card creation quota check failed", error);
     return {
       ok: false,
-      message:
-        "Не удалось проверить возможность публикации. Попробуйте ещё раз.",
+      message: messages.Server.quotaCheck,
     };
   }
 
@@ -71,8 +74,7 @@ export async function createCard(input: CardInput): Promise<CreateCardResult> {
       if (error instanceof CardCreationQuotaExceededError) {
         return {
           ok: false,
-          message:
-            "Слишком много открыток за короткое время. Попробуйте снова через час.",
+          message: messages.Server.quotaExceeded,
         };
       }
 
@@ -86,14 +88,13 @@ export async function createCard(input: CardInput): Promise<CreateCardResult> {
       console.error("Card creation failed", error);
       return {
         ok: false,
-        message:
-          "Не удалось сохранить открытку. Проверьте подключение к базе и попробуйте снова.",
+        message: messages.Server.saveFailed,
       };
     }
   }
 
   return {
     ok: false,
-    message: "Не удалось создать уникальную ссылку. Попробуйте ещё раз.",
+    message: messages.Server.tokenFailed,
   };
 }

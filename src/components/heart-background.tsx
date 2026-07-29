@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "motion/react";
+import { useTranslations } from "next-intl";
 
 type HeartBackgroundProps = {
   loosened?: boolean;
@@ -10,10 +11,12 @@ type HeartBackgroundProps = {
 export function HeartBackground({
   loosened = false,
 }: HeartBackgroundProps) {
+  const t = useTranslations("Images");
+
   return (
-    <div className="heart-glow absolute inset-0 overflow-hidden rounded-[28%]">
+    <div className="absolute inset-0 overflow-hidden rounded-[28%]">
       <Image
-        alt="Большое розовое сердце, перевязанное нежной лентой"
+        alt={t("heart")}
         className="object-contain"
         fill
         loading="eager"

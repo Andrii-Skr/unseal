@@ -42,9 +42,11 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
+  closeLabel = "Close",
   showCloseButton = true,
   ...props
 }: DialogPrimitive.Popup.Props & {
+  closeLabel?: string
   showCloseButton?: boolean
 }) {
   return (
@@ -72,7 +74,7 @@ function DialogContent({
           >
             <XIcon
             />
-            <span className="sr-only">Закрыть</span>
+            <span className="sr-only">{closeLabel}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -92,10 +94,12 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 function DialogFooter({
   className,
+  closeLabel = "Close",
   showCloseButton = false,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
+  closeLabel?: string
   showCloseButton?: boolean
 }) {
   return (
@@ -110,7 +114,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close render={<Button variant="outline" />}>
-          Закрыть
+          {closeLabel}
         </DialogPrimitive.Close>
       )}
     </div>

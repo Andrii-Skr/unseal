@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { DEFAULT_CARD } from "@/lib/card-schema";
+import { DEFAULT_CARD, getDefaultCard } from "@/lib/card-schema";
 import {
   cleanupStaleCardCreationQuotas,
   consumeCardCreationQuota,
@@ -33,9 +33,10 @@ afterAll(async () => {
 describe("card persistence", () => {
   it("round-trips an active card without exposing its internal id", async () => {
     const token = createPublicToken();
+    const englishCard = getDefaultCard("en");
     const card = await prisma.card.create({
       data: {
-        ...DEFAULT_CARD,
+        ...englishCard,
         replyUrl: null,
         token,
         expiresAt: getCardExpiry(),
@@ -46,7 +47,7 @@ describe("card persistence", () => {
     const result = await readPublicCard(token);
     expect(result).toEqual({
       status: "active",
-      card: { ...DEFAULT_CARD, replyUrl: "" },
+      card: { ...englishCard, replyUrl: "" },
     });
   });
 
@@ -69,6 +70,7 @@ describe("card persistence", () => {
     ).resolves.toBeNull();
     await expect(readPublicCard(token)).resolves.toEqual({
       status: "expired",
+      language: "ru",
     });
   });
 
@@ -118,11 +120,12 @@ describe("card persistence", () => {
     ]);
 
     expect(results).toEqual([
-      { status: "expired" },
-      { status: "expired" },
+      { status: "expired", language: "ru" },
+      { status: "expired", language: "ru" },
     ]);
     await expect(readPublicCard(token)).resolves.toEqual({
       status: "expired",
+      language: "ru",
     });
   });
 

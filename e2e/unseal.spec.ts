@@ -6,6 +6,59 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
 });
 
+test("uses English by default and fixes the sender's locale in the card", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"));
+
+  await page.setExtraHTTPHeaders({ "Accept-Language": "ru" });
+  await page.goto("/create");
+  await expect(page).toHaveURL(/\/en\/create$/);
+  await expect(
+    page.getByRole("heading", { name: "Who this story is for" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Your name").fill("Kept draft");
+  await page.getByLabel("Language").selectOption("uk");
+  await expect(page).toHaveURL(/\/uk\/create$/);
+  await expect(page.getByLabel("Ваше ім’я")).toHaveValue("Kept draft");
+  await expect(page.getByLabel("Початкова фраза")).toHaveValue(
+    "За цими замками заховано те, чого не можна торкнутися руками",
+  );
+
+  await page.getByLabel("Мова").selectOption("ru");
+  await expect(page).toHaveURL(/\/ru\/create$/);
+  await expect(page.getByLabel("Ваше имя")).toHaveValue("Kept draft");
+  await expect(page.getByLabel("Начальная фраза")).toHaveValue(
+    "За этими замками спрятано то, чего нельзя коснуться руками",
+  );
+
+  await page.getByLabel("Язык").selectOption("uk");
+  await expect(page).toHaveURL(/\/uk\/create$/);
+  await expect(page.getByLabel("Ваше ім’я")).toHaveValue("Kept draft");
+  await expect(page.getByLabel("Початкова фраза")).toHaveValue(
+    "За цими замками заховано те, чого не можна торкнутися руками",
+  );
+
+  await page
+    .getByRole("button", { name: "Створити особисте посилання" })
+    .click();
+  const cardLink = page.getByRole("link", { name: "Відкрити листівку" });
+  await expect(cardLink).toHaveAttribute(
+    "href",
+    /\/card\/[A-Za-z0-9_-]{43}$/,
+  );
+  await cardLink.click();
+  await expect(
+    page.getByRole("button", { name: "Відкрити перший замок" }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Відкрити перший замок" }),
+  ).toBeVisible();
+});
+
 test("creates and opens the full five-lock story", async ({ page }, testInfo) => {
   const reducedMotionWarnings: string[] = [];
   page.on("console", (message) => {
@@ -14,7 +67,7 @@ test("creates and opens the full five-lock story", async ({ page }, testInfo) =>
     }
   });
 
-  await page.goto("/create");
+  await page.goto("/ru/create");
   await expect(
     page.getByRole("heading", { level: 1, name: "Unseal" }),
   ).toBeVisible();
@@ -59,14 +112,50 @@ test("creates and opens the full five-lock story", async ({ page }, testInfo) =>
   await expect(bridgePhrase).toBeVisible();
   await page.waitForTimeout(1200);
   await expect(bridgePhrase).toBeVisible();
-  await page
-    .getByRole("button", { name: "Заглянуть внутрь сердца" })
-    .click();
+  const enterHeartButton = page.getByRole("button", {
+    name: "Заглянуть внутрь сердца",
+  });
+  const heartZoom = page.getByTestId("heart-zoom-transition");
+  const initialHeartTransform = await heartZoom.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+  await enterHeartButton.click();
+  await page.waitForTimeout(350);
+  const heartZoomFrame = await heartZoom.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      activeAnimations: element.getAnimations().length,
+      transform: style.transform,
+    };
+  });
+  expect(heartZoomFrame.activeAnimations).toBeGreaterThan(0);
+  expect(heartZoomFrame.transform).not.toBe("none");
+  expect(heartZoomFrame.transform).not.toBe(initialHeartTransform);
 
   const insidePhrase = page
     .locator("section")
     .getByText("Теперь ты внутри");
   await expect(insidePhrase).toBeVisible({ timeout: 5_000 });
+  const insideImageState = await page
+    .getByTestId("inside-heart-image")
+    .evaluate((image) => {
+      const element = image as HTMLImageElement;
+      const bounds = element.getBoundingClientRect();
+      return {
+        complete: element.complete,
+        height: bounds.height,
+        naturalWidth: element.naturalWidth,
+        width: bounds.width,
+      };
+    });
+  expect(insideImageState.complete).toBe(true);
+  expect(insideImageState.naturalWidth).toBeGreaterThan(0);
+  expect(insideImageState.width).toBeGreaterThanOrEqual(
+    page.viewportSize()!.width,
+  );
+  expect(insideImageState.height).toBeGreaterThanOrEqual(
+    page.viewportSize()!.height,
+  );
   await page.waitForTimeout(1400);
   await expect(insidePhrase).toBeVisible();
 
@@ -148,6 +237,20 @@ test("creates and opens the full five-lock story", async ({ page }, testInfo) =>
     width: 1080,
     height: 1350,
   });
+  let topGreen = 0;
+  let topBlue = 0;
+  let sampledTopPixels = 0;
+  for (let y = 30; y < 180; y += 1) {
+    for (let x = 440; x < 640; x += 1) {
+      const pixelIndex = (y * keepsake.width + x) * 4;
+      topGreen += keepsake.data[pixelIndex + 1];
+      topBlue += keepsake.data[pixelIndex + 2];
+      sampledTopPixels += 1;
+    }
+  }
+  expect(topGreen / sampledTopPixels).toBeGreaterThan(
+    topBlue / sampledTopPixels + 20,
+  );
   let opaquePixels = 0;
   for (let index = 3; index < keepsake.data.length; index += 4) {
     if (keepsake.data[index] > 0) opaquePixels += 1;
@@ -171,7 +274,7 @@ test("creates and opens the full five-lock story", async ({ page }, testInfo) =>
 test("mobile creator opens the live preview sheet", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"));
   await page.setViewportSize({ width: 390, height: 650 });
-  await page.goto("/create");
+  await page.goto("/ru/create");
   await page.getByRole("button", { name: "Открыть живой предпросмотр" }).click();
   const preview = page.getByRole("dialog", {
     name: "Предпросмотр открытки",
@@ -207,7 +310,7 @@ test("mobile share dialog stays inside the dynamic viewport", async ({
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.setViewportSize({ width: 390, height: 650 });
-  await page.goto("/create");
+  await page.goto("/ru/create");
   await page.getByRole("button", { name: "Создать личную ссылку" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Открытка запечатана" });
@@ -266,7 +369,7 @@ test("mobile remote-browser attributes do not trigger hydration errors", async (
     }).observe(document, { childList: true, subtree: true });
   });
 
-  await page.goto("/create");
+  await page.goto("/ru/create");
   await expect(
     page.getByRole("heading", { name: "Для кого эта история" }),
   ).toBeVisible();
@@ -280,7 +383,7 @@ test("desktop keeps a long lock message and its action in view", async ({
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/create");
+  await page.goto("/ru/create");
   await page.getByLabel("После замка 3").fill(
     "Там лишь чувства, которые слишком долго оставались несказанными, и слова, которые всё это время ждали подходящего момента, чтобы прозвучать искренне, спокойно и без лишней спешки, потому что некоторые признания особенно важно открывать бережно и не прятать самое главное между короткими фразами.",
   );

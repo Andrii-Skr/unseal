@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 export default function defineNextConfig(phase: string): NextConfig {
   const isDevelopment = phase === PHASE_DEVELOPMENT_SERVER;
 
-  return {
+  return withNextIntl({
     allowedDevOrigins: isDevelopment ? ["*.trycloudflare.com"] : undefined,
     devIndicators: isDevelopment ? false : undefined,
     distDir: process.env.NEXT_DIST_DIR ?? ".next",
@@ -37,5 +40,5 @@ export default function defineNextConfig(phase: string): NextConfig {
         },
       ];
     },
-  };
+  });
 }
